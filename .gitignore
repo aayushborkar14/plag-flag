@@ -1,0 +1,6 @@
+.DS_STORE
+.direnv
+.envrc
+.clangd
+shell.nix
+main
