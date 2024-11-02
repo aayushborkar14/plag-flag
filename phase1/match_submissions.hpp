@@ -18,10 +18,10 @@ struct state {
     std::map<int, int> next;
 };
 
-struct VectorSizeCompare {
-    bool operator()(const std::vector<int> &lhs,
-                    const std::vector<int> &rhs) const {
-        return lhs.size() < rhs.size();
+struct PairDiffCompare {
+    bool operator()(const std::pair<int, int> &lhs,
+                    const std::pair<int, int> &rhs) const {
+        return lhs.second - lhs.first < rhs.second - rhs.first;
     }
 };
 
@@ -89,32 +89,30 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
         }
         length[i] = l;
     }
-    int total_length{};
-    std::priority_queue<std::vector<int>, std::vector<std::vector<int>>,
-                        VectorSizeCompare>
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>,
+                        PairDiffCompare>
         pq{};
     for (int i = 0; i < length.size(); i++) {
         if (i + 1 < length.size() && length[i + 1] > length[i])
             continue;
         if (length[i] >= 10)
-            pq.push(std::vector<int>(T.begin() + i - length[i] + 1,
-                                     T.begin() + i + 1));
+            pq.emplace(i - length[i] + 1, i + 1);
     }
     SuffixAutomaton sa2{};
-    std::vector<int> arr = pq.top();
+    std::pair<int, int> lr = pq.top();
     pq.pop();
-    total_length = arr.size();
-    for (int x : arr)
-        sa2.sa_extend(x);
+    int total_length = lr.second - lr.first;
+    for (int i = lr.first; i < lr.second; i++)
+        sa2.sa_extend(T[i]);
     int non_occuring_token{};
     while (!pq.empty()) {
-        arr = pq.top();
+        lr = pq.top();
         pq.pop();
         state s = sa2.st[0];
         bool found = true;
-        for (int x : arr) {
-            if (s.next.count(x))
-                s = sa2.st[s.next[x]];
+        for (int i = lr.first; i < lr.second; i++) {
+            if (s.next.count(T[i]))
+                s = sa2.st[s.next[T[i]]];
             else {
                 found = false;
                 break;
@@ -122,9 +120,9 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
         }
         if (!found) {
             sa2.sa_extend(--non_occuring_token);
-            for (int x : arr)
-                sa2.sa_extend(x);
-            total_length += arr.size();
+            for (int i = lr.first; i < lr.second; i++)
+                sa2.sa_extend(T[i]);
+            total_length += lr.second - lr.first;
         }
     }
     return total_length;
