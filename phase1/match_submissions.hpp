@@ -18,13 +18,6 @@ struct state {
     std::map<int, int> next;
 };
 
-struct PairDiffCompare {
-    bool operator()(const std::pair<int, int> &lhs,
-                    const std::pair<int, int> &rhs) const {
-        return lhs.second - lhs.first < rhs.second - rhs.first;
-    }
-};
-
 class SuffixAutomaton {
   public:
     static const int MAXLEN = 100000;
@@ -89,28 +82,26 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
         }
         length[i] = l;
     }
-    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>,
-                        PairDiffCompare>
-        pq{};
+    std::priority_queue<std::pair<int, int>> pq{};
     for (int i = 0; i < length.size(); i++) {
         if (i + 1 < length.size() && length[i + 1] > length[i])
             continue;
         if (length[i] >= 10)
-            pq.emplace(i - length[i] + 1, i + 1);
+            pq.emplace(length[i], i - length[i] + 1);
     }
     SuffixAutomaton sa2{};
-    std::pair<int, int> lr = pq.top();
+    std::pair<int, int> u = pq.top();
     pq.pop();
-    int total_length = lr.second - lr.first;
-    for (int i = lr.first; i < lr.second; i++)
+    int total_length = u.first;
+    for (int i = u.second; i < u.second + u.first; i++)
         sa2.sa_extend(T[i]);
     int non_occuring_token{};
     while (!pq.empty()) {
-        lr = pq.top();
+        u = pq.top();
         pq.pop();
         state s = sa2.st[0];
         bool found = true;
-        for (int i = lr.first; i < lr.second; i++) {
+        for (int i = u.second; i < u.second + u.first; i++) {
             if (s.next.count(T[i]))
                 s = sa2.st[s.next[T[i]]];
             else {
@@ -120,9 +111,9 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
         }
         if (!found) {
             sa2.sa_extend(--non_occuring_token);
-            for (int i = lr.first; i < lr.second; i++)
+            for (int i = u.second; i < u.second + u.first; i++)
                 sa2.sa_extend(T[i]);
-            total_length += lr.second - lr.first;
+            total_length += u.first;
         }
     }
     return total_length;
