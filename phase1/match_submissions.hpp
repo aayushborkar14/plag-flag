@@ -13,57 +13,61 @@
 
 // OPTIONAL: Add your helper functions and data structures here
 
+// state for automaton
 struct state {
     int len, link;
     std::map<int, int> next;
 };
 
+// Suffix Automaton, adapted from
+// https://cp-algorithms.com/string/suffix-automaton.html
 class SuffixAutomaton {
   public:
     static const int MAXLEN = 100000;
-    state *st;
-    int sz, last;
+    state *states;
+    int state_count, last_state;
 
     SuffixAutomaton() {
-        st = new state[MAXLEN * 2];
-        st[0].len = 0;
-        st[0].link = -1;
-        sz = 1;
-        last = 0;
+        states = new state[MAXLEN * 2];
+        states[0].len = 0;
+        states[0].link = -1;
+        state_count = 1;
+        last_state = 0;
     }
 
-    ~SuffixAutomaton() { delete[] st; }
+    ~SuffixAutomaton() { delete[] states; }
 
     void sa_extend(int c) {
-        int cur = sz++;
-        st[cur].len = st[last].len + 1;
-        int p = last;
-        while (p != -1 && !st[p].next.count(c)) {
-            st[p].next[c] = cur;
-            p = st[p].link;
+        int cur = state_count++;
+        states[cur].len = states[last_state].len + 1;
+        int p = last_state;
+        while (p != -1 && !states[p].next.count(c)) {
+            states[p].next[c] = cur;
+            p = states[p].link;
         }
         if (p == -1) {
-            st[cur].link = 0;
+            states[cur].link = 0;
         } else {
-            int q = st[p].next[c];
-            if (st[p].len + 1 == st[q].len) {
-                st[cur].link = q;
+            int q = states[p].next[c];
+            if (states[p].len + 1 == states[q].len) {
+                states[cur].link = q;
             } else {
-                int clone = sz++;
-                st[clone].len = st[p].len + 1;
-                st[clone].next = st[q].next;
-                st[clone].link = st[q].link;
-                while (p != -1 && st[p].next[c] == q) {
-                    st[p].next[c] = clone;
-                    p = st[p].link;
+                int clone = state_count++;
+                states[clone].len = states[p].len + 1;
+                states[clone].next = states[q].next;
+                states[clone].link = states[q].link;
+                while (p != -1 && states[p].next[c] == q) {
+                    states[p].next[c] = clone;
+                    p = states[p].link;
                 }
-                st[q].link = st[cur].link = clone;
+                states[q].link = states[cur].link = clone;
             }
         }
-        last = cur;
+        last_state = cur;
     }
 };
 
+// Find total length of exact matches
 int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
     SuffixAutomaton sa{};
     for (int x : S)
@@ -72,12 +76,12 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
     int v{}, l{};
     std::vector<int> length(T.size(), 0);
     for (int i = 0; i < T.size(); i++) {
-        while (v && !sa.st[v].next.count(T[i])) {
-            v = sa.st[v].link;
-            l = sa.st[v].len;
+        while (v && !sa.states[v].next.count(T[i])) {
+            v = sa.states[v].link;
+            l = sa.states[v].len;
         }
-        if (sa.st[v].next.count(T[i])) {
-            v = sa.st[v].next[T[i]];
+        if (sa.states[v].next.count(T[i])) {
+            v = sa.states[v].next[T[i]];
             l++;
         }
         length[i] = l;
@@ -99,11 +103,11 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
     while (!pq.empty()) {
         u = pq.top();
         pq.pop();
-        state s = sa2.st[0];
+        state s = sa2.states[0];
         bool found = true;
         for (int i = u.second; i < u.second + u.first; i++) {
             if (s.next.count(T[i]))
-                s = sa2.st[s.next[T[i]]];
+                s = sa2.states[s.next[T[i]]];
             else {
                 found = false;
                 break;
@@ -119,14 +123,14 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
     return total_length;
 }
 
-// returns {length, start1}
+// Find closest approximate match for P in T. returns {length, start1}
 std::pair<int, int> levenshtein_search(const std::vector<int> &T,
                                        const std::vector<int> &P, float alpha,
                                        int start2) {
     int m = P.size() - start2;
     int n = T.size();
 
-    std::vector<int> C(m + 1, 0), Cd(m + 1, 0);
+    std::vector<int> C(m + 1, 0), Cd(m + 1, 0); // DP vectors
     std::vector<int> l(m + 1, 0), ld(m + 1, 0);
 
     for (int i = 0; i <= m; i++) {
@@ -175,5 +179,8 @@ std::array<int, 5> match_submissions(std::vector<int> &submission1,
             result[4] = i;
         }
     }
+    float len = (submission1.size() + submission2.size()) / 2.0;
+    result[0] =
+        (result[1] >= std::min(200.0, 0.5 * len) && result[2] >= 0.3 * len);
     return result;
 }
