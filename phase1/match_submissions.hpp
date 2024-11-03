@@ -119,9 +119,48 @@ int length_subarrays(std::vector<int> &S, std::vector<int> &T) {
     return total_length;
 }
 
+// returns {length, start1}
+std::pair<int, int> levenshtein_search(const std::vector<int> &T,
+                                       const std::vector<int> &P, float alpha,
+                                       int start2) {
+    int m = P.size() - start2;
+    int n = T.size();
+
+    std::vector<int> C(m + 1, 0), Cd(m + 1, 0);
+
+    for (int i = 0; i <= m; i++) {
+        C[i] = i;
+        Cd[i] = i;
+    }
+    std::pair<int, int> result{0, -1};
+    for (int j = 1; j <= n; j++) {
+        for (int i = 1; i <= m; i++) {
+            if (P[i - 1 + start2] == T[j - 1])
+                Cd[i] = C[i - 1];
+            else
+                Cd[i] = 1 + std::min(Cd[i - 1], std::min(C[i], C[i - 1]));
+            int len = (i + j) >> 1;
+            if (Cd[i] <= alpha * len && len > result.first)
+                result = {len, j - len};
+        }
+        C = Cd;
+    }
+    return result;
+}
+
 std::array<int, 5> match_submissions(std::vector<int> &submission1,
                                      std::vector<int> &submission2) {
     std::array<int, 5> result = {0, 0, 0, 0, 0};
     result[1] = length_subarrays(submission1, submission2);
+
+    for (int i = 0; i + std::max(30, result[2]) <= submission2.size(); i++) {
+        std::pair<int, int> p =
+            levenshtein_search(submission1, submission2, 0.05, i);
+        if (p.first > result[2]) {
+            result[2] = p.first;
+            result[3] = p.second;
+            result[4] = i;
+        }
+    }
     return result;
 }
