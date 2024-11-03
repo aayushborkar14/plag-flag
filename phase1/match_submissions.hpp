@@ -127,6 +127,7 @@ std::pair<int, int> levenshtein_search(const std::vector<int> &T,
     int n = T.size();
 
     std::vector<int> C(m + 1, 0), Cd(m + 1, 0);
+    std::vector<int> l(m + 1, 0), ld(m + 1, 0);
 
     for (int i = 0; i <= m; i++) {
         C[i] = i;
@@ -135,15 +136,27 @@ std::pair<int, int> levenshtein_search(const std::vector<int> &T,
     std::pair<int, int> result{0, -1};
     for (int j = 1; j <= n; j++) {
         for (int i = 1; i <= m; i++) {
-            if (P[i - 1 + start2] == T[j - 1])
+            if (P[i - 1 + start2] == T[j - 1]) {
                 Cd[i] = C[i - 1];
-            else
-                Cd[i] = 1 + std::min(Cd[i - 1], std::min(C[i], C[i - 1]));
-            int len = (i + j) >> 1;
+                ld[i] = l[i - 1] + 1;
+            } else {
+                if (C[i] <= Cd[i - 1] && C[i] <= C[i - 1]) {
+                    Cd[i] = C[i] + 1;
+                    ld[i] = l[i] + 1;
+                } else if (C[i - 1] <= Cd[i - 1] && C[i - 1] <= C[i]) {
+                    Cd[i] = C[i - 1] + 1;
+                    ld[i] = l[i - 1] + 1;
+                } else {
+                    Cd[i] = Cd[i - 1] + 1;
+                    ld[i] = ld[i - 1];
+                }
+            }
+            int len = (ld[i] + i) >> 1;
             if (Cd[i] <= alpha * len && len > result.first)
-                result = {len, j - len};
+                result = {len, j - ld[i]};
         }
         C = Cd;
+        l = ld;
     }
     return result;
 }
