@@ -172,7 +172,7 @@ std::array<int, 5> match_submissions(std::vector<int> &submission1,
 
     for (int i = 0; i + std::max(30, result[2]) <= submission2.size(); i++) {
         std::pair<int, int> p =
-            levenshtein_search(submission1, submission2, 0.05, i);
+            levenshtein_search(submission1, submission2, 0.2, i);
         if (p.first > result[2]) {
             result[2] = p.first;
             result[3] = p.second;
@@ -181,6 +181,6 @@ std::array<int, 5> match_submissions(std::vector<int> &submission1,
     }
     float len = (submission1.size() + submission2.size()) / 2.0;
     result[0] =
-        (result[1] >= std::min(200.0, 0.5 * len) && result[2] >= 0.3 * len);
+        (result[1] >= std::min(200.0, 0.5 * len) && result[2] >= 0.5 * len);
     return result;
 }
