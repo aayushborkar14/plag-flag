@@ -10,7 +10,11 @@ plagiarism_checker_t::plagiarism_checker_t(void) {
 
 plagiarism_checker_t::plagiarism_checker_t(
     std::vector<std::shared_ptr<submission_t>> __submissions) {
-    // TODO
+    const std::chrono::time_point<std::chrono::system_clock> timestamp =
+        std::chrono::system_clock::now();
+    tokenizer_t tokeni1(__submissions[0]->codefile);
+    for (auto s : __submissions)
+        submissions.push_back({s, timestamp, tokeni1.get_tokens(), true});
     worker = std::thread(&plagiarism_checker_t::thread_loop, this);
 }
 
@@ -40,18 +44,16 @@ void plagiarism_checker_t::thread_loop() {
     }
 }
 
-void plagiarism_checker_t::add_submission(std::shared_ptr<submission_t> __submission) {
-    const std::chrono::time_point<std::chrono::system_clock> timestamp = std::chrono::system_clock::now();
-    tokenizer_t tokeni1(__submission->codefile);
-    std::vector<int> tokens = tokeni1.get_tokens();
-
-    submissions.push_back({__submission , timestamp , tokens});
+void plagiarism_checker_t::add_submission(
+    std::shared_ptr<submission_t> __submission) {
+    const std::chrono::time_point<std::chrono::system_clock> timestamp =
+        std::chrono::system_clock::now();
 
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (stop)
             return;
-        jobs.push(exsubmission_t{__submission , timestamp , tokens});
+        jobs.push(exsubmission_t{__submission, timestamp, {}, false});
     }
 
     mutex_condition.notify_one();
@@ -84,10 +86,12 @@ std::vector<std::pair<int, int>> length_subarrays(std::vector<int> &S,
     for (int i = 0; i < length.size(); i++) {
         if (i + 1 < length.size() && length[i + 1] > length[i])
             continue;
-        if (length[i] >= 10)
+        if (length[i] >= 15)
             pq.emplace(length[i], i - length[i] + 1);
     }
     SuffixAutomaton sa2{};
+    if (pq.empty())
+        return {};
     std::pair<int, int> u = pq.top();
     pq.pop();
     for (int i = u.second; i < u.second + u.first; i++)
@@ -110,54 +114,53 @@ std::vector<std::pair<int, int>> length_subarrays(std::vector<int> &S,
             sa2.sa_extend(--non_occuring_token);
             for (int i = u.second; i < u.second + u.first; i++)
                 sa2.sa_extend(T[i]);
-            if (u.first >= 15) {
-                matches.push_back(u);
-            }
+            matches.push_back(u);
         }
     }
     return matches;
 }
 
-void plagiarism_checker_t::check_submission(exsubmission_t __submission){
-    
-    std::set<int> se;
-    for(auto s : submissions){
-        if(s.submission->id != __submission.submission->id)
-        {
-            std::vector<std::pair<int,int>> plag = length_subarrays(s.tokens , __submission.tokens);
-            
-            for(auto p: plag)
-            {
+void plagiarism_checker_t::check_submission(exsubmission_t __submission) {
+    tokenizer_t tokeni1(__submission.submission->codefile);
+    std::vector<int> tokens = tokeni1.get_tokens();
+    __submission.tokens = tokens;
+    submissions.push_back(__submission);
+
+    std::set<int> se{};
+    for (auto s : submissions) {
+        if (s.submission->id != __submission.submission->id) {
+            std::vector<std::pair<int, int>> plag =
+                length_subarrays(s.tokens, __submission.tokens);
+
+            for (auto p : plag) {
                 se.insert(p.second);
             }
 
-            if(plag.size() > 10)
-            {
-                if(std::chrono::milliseconds(1000) >= (s.timestamp - __submission.timestamp) && (s.timestamp - __submission.timestamp) >= std::chrono::milliseconds(-1000))
+            auto diff = s.timestamp - __submission.timestamp;
+            if (plag.size() >= 10) {
+                if (std::abs(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            diff)
+                            .count()) <= 1000)
                     s.flagsubmission();
                 __submission.flagsubmission();
-            }
-            else
-            {
-                for(auto p: plag)
-                {
-                    if(p.first >= 75) 
-                    {
-                        if(std::chrono::milliseconds(1000) >= (s.timestamp - __submission.timestamp) && (s.timestamp - __submission.timestamp) >= std::chrono::milliseconds(-1000))
+            } else {
+                for (auto p : plag) {
+                    if (p.first >= 75) {
+                        if (std::abs(std::chrono::duration_cast<
+                                         std::chrono::milliseconds>(diff)
+                                         .count()) <= 1000)
                             s.flagsubmission();
                         __submission.flagsubmission();
                     }
                 }
             }
         }
-
     }
 
-    if(se.size() >= 20)
-    {
+    if (se.size() >= 20) {
         __submission.flagsubmission();
     }
-
 }
 
 // End TODO

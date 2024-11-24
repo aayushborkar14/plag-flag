@@ -5,8 +5,8 @@
 #include <functional>
 #include <map>
 #include <queue>
-#include <thread>
 #include <set>
+#include <thread>
 
 // You are free to add any STL includes above this comment, below the --line--.
 // DO NOT add "using namespace std;" or include any other files/libraries.
@@ -73,13 +73,11 @@ struct exsubmission_t {
     std::vector<int> tokens;
     bool flagged = false;
 
-    void flagsubmission()
-    {
-        if(!flagged)
-        {
-            if(submission->student)
+    void flagsubmission() {
+        if (!flagged) {
+            if (submission->student)
                 submission->student->flag_student(submission);
-            if(submission->professor)
+            if (submission->professor)
                 submission->professor->flag_professor(submission);
             flagged = true;
         }
