@@ -6,6 +6,7 @@
 #include <map>
 #include <queue>
 #include <thread>
+#include <set>
 
 // You are free to add any STL includes above this comment, below the --line--.
 // DO NOT add "using namespace std;" or include any other files/libraries.
@@ -66,68 +67,24 @@ class SuffixAutomaton {
     }
 };
 
-// Find total length of exact matches
-// Return vector of pairs where each pair {i, j} denotes
-// match of lenght i starting at index j in T
-std::vector<std::pair<int, int>> length_subarrays(std::vector<int> &S,
-                                                  std::vector<int> &T) {
-    SuffixAutomaton sa{};
-    std::vector<std::pair<int, int>> matches{};
-    for (int x : S)
-        sa.sa_extend(x);
+struct exsubmission_t {
+    std::shared_ptr<submission_t> submission;
+    std::chrono::time_point<std::chrono::system_clock> timestamp;
+    std::vector<int> tokens;
+    bool flagged = false;
 
-    int v{}, l{};
-    std::vector<int> length(T.size(), 0);
-    for (int i = 0; i < T.size(); i++) {
-        while (v && !sa.states[v].next.count(T[i])) {
-            v = sa.states[v].link;
-            l = sa.states[v].len;
-        }
-        if (sa.states[v].next.count(T[i])) {
-            v = sa.states[v].next[T[i]];
-            l++;
-        }
-        length[i] = l;
-    }
-    std::priority_queue<std::pair<int, int>> pq{};
-    for (int i = 0; i < length.size(); i++) {
-        if (i + 1 < length.size() && length[i + 1] > length[i])
-            continue;
-        if (length[i] >= 10)
-            pq.emplace(length[i], i - length[i] + 1);
-    }
-    SuffixAutomaton sa2{};
-    std::pair<int, int> u = pq.top();
-    pq.pop();
-    int total_length = u.first;
-    for (int i = u.second; i < u.second + u.first; i++)
-        sa2.sa_extend(T[i]);
-    int non_occuring_token{};
-    while (!pq.empty()) {
-        u = pq.top();
-        pq.pop();
-        state s = sa2.states[0];
-        bool found = true;
-        for (int i = u.second; i < u.second + u.first; i++) {
-            if (s.next.count(T[i]))
-                s = sa2.states[s.next[T[i]]];
-            else {
-                found = false;
-                break;
-            }
-        }
-        if (!found) {
-            sa2.sa_extend(--non_occuring_token);
-            for (int i = u.second; i < u.second + u.first; i++)
-                sa2.sa_extend(T[i]);
-            if (u.first >= 15) {
-                matches.push_back(u);
-            }
-            total_length += u.first;
+    void flagsubmission()
+    {
+        if(!flagged)
+        {
+            if(submission->student)
+                submission->student->flag_student(submission);
+            if(submission->professor)
+                submission->professor->flag_professor(submission);
+            flagged = true;
         }
     }
-    return matches;
-}
+};
 
 class plagiarism_checker_t {
     // You should NOT modify the public interface of this class.
@@ -140,13 +97,15 @@ class plagiarism_checker_t {
 
   protected:
     // TODO: Add members and function signatures here
-    void thread_loop();
-    void check_submission(std::shared_ptr<submission_t> __submission);
 
+    void thread_loop();
+    void check_submission(exsubmission_t __submission); // Mera kaam
+
+    std::vector<exsubmission_t> submissions;
     std::mutex queue_mutex;
     std::condition_variable mutex_condition;
     std::thread worker;
-    std::queue<std::shared_ptr<submission_t>> jobs;
+    std::queue<exsubmission_t> jobs;
     bool stop;
     // End TODO
 };
