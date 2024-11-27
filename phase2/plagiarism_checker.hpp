@@ -2,7 +2,6 @@
 // -----------------------------------------------------------------------------
 #include <chrono>
 #include <condition_variable>
-#include <functional>
 #include <map>
 #include <queue>
 #include <set>
@@ -37,6 +36,8 @@ class SuffixAutomaton {
 
     ~SuffixAutomaton() { delete[] states; }
 
+    // Adds a token to the suffix automaton (we add tokens sequentially to build
+    // it for the entire stream)
     void sa_extend(int c) {
         int cur = state_count++;
         states[cur].len = states[last_state].len + 1;
@@ -67,12 +68,14 @@ class SuffixAutomaton {
     }
 };
 
+// A struct to streamline the process of dealing with submissions
 struct exsubmission_t {
     std::shared_ptr<submission_t> submission;
     std::chrono::time_point<std::chrono::system_clock> timestamp;
     std::vector<int> tokens;
     bool flagged = false;
 
+    // Avoid multiple flagging
     void flagsubmission() {
         if (!flagged) {
             if (submission->student)
@@ -97,8 +100,14 @@ class plagiarism_checker_t {
     // TODO: Add members and function signatures here
 
     void thread_loop();
-    void check_submission(exsubmission_t __submission); // Mera kaam
+    void check_submission(exsubmission_t __submission);
 
+    // Submissions vector mantained by the check_submission function.
+    // Jobs queue shared by the check submissions and add_submissions functions.
+    // This is shared between threads and hence needs the use of mutex to avoid
+    // data races. The condition variable and the queue_mutex are for the above
+    // purpose The worker thread is the thread in which the actual plagiarism
+    // checking logic would work.
     std::vector<exsubmission_t> submissions;
     std::mutex queue_mutex;
     std::condition_variable mutex_condition;

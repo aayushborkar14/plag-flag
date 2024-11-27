@@ -5,11 +5,13 @@
 
 // TODO: Implement the methods of the plagiarism_checker_t class
 plagiarism_checker_t::plagiarism_checker_t(void) {
+    stop = false;
     worker = std::thread(&plagiarism_checker_t::thread_loop, this);
 }
 
 plagiarism_checker_t::plagiarism_checker_t(
     std::vector<std::shared_ptr<submission_t>> __submissions) {
+    stop = false;
     const std::chrono::time_point<std::chrono::system_clock> timestamp =
         std::chrono::system_clock::now();
     tokenizer_t tokeni1(__submissions[0]->codefile);
@@ -28,6 +30,8 @@ plagiarism_checker_t::~plagiarism_checker_t(void) {
         worker.join();
 }
 
+// The thread loop is the function run by the thread. It feeds the elements of
+// the jobs queue sequentially into the check_submission function.
 void plagiarism_checker_t::thread_loop() {
     while (true) {
         exsubmission_t submission;
@@ -44,11 +48,14 @@ void plagiarism_checker_t::thread_loop() {
     }
 }
 
+// Pushes a new submission with the appropriate timestamp to the jobs queue.
 void plagiarism_checker_t::add_submission(
     std::shared_ptr<submission_t> __submission) {
     const std::chrono::time_point<std::chrono::system_clock> timestamp =
         std::chrono::system_clock::now();
 
+    // Uses the mutex to lock the jobs queue while add_submission is modifying
+    // it to avoid data races.
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (stop)
@@ -127,7 +134,10 @@ void plagiarism_checker_t::check_submission(exsubmission_t __submission) {
     submissions.push_back(__submission);
 
     std::set<int> se{};
+    // Loop through each previoius submission
     for (auto s : submissions) {
+
+        // Here we are checking for plagiarism between two submissions.
         if (s.submission->id != __submission.submission->id) {
             std::vector<std::pair<int, int>> plag =
                 length_subarrays(s.tokens, __submission.tokens);
@@ -135,10 +145,11 @@ void plagiarism_checker_t::check_submission(exsubmission_t __submission) {
             for (auto p : plag) {
                 se.insert(p.second);
             }
-
             auto diff = s.timestamp - __submission.timestamp;
             if (plag.size() >= 10) {
                 if (std::abs(
+                        // If the time difference is less than one second then
+                        // we flag both submissions otherwise only one
                         std::chrono::duration_cast<std::chrono::milliseconds>(
                             diff)
                             .count()) <= 1000)
@@ -147,6 +158,7 @@ void plagiarism_checker_t::check_submission(exsubmission_t __submission) {
             } else {
                 for (auto p : plag) {
                     if (p.first >= 75) {
+                        // Same time distance logic
                         if (std::abs(std::chrono::duration_cast<
                                          std::chrono::milliseconds>(diff)
                                          .count()) <= 1000)
@@ -158,6 +170,7 @@ void plagiarism_checker_t::check_submission(exsubmission_t __submission) {
         }
     }
 
+    // Used for patchwork plagiarism
     if (se.size() >= 20) {
         __submission.flagsubmission();
     }
